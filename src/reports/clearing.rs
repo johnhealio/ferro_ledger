@@ -18,33 +18,55 @@ enum GroupKey {
     Fallback(String, Decimal),
 }
 
+/// One posting contributing to a [`ClearingGroup`], flattened with just enough of its parent
+/// transaction's context to render a report line.
 pub struct GroupMember {
+    /// The parent transaction's date.
     pub date: NaiveDate,
+    /// The parent transaction's description.
     pub description: String,
+    /// This posting's signed quantity.
     pub quantity: Decimal,
+    /// This posting's commodity.
     pub commodity: String,
+    /// Where this posting was parsed from.
     pub source: SourcePos,
 }
 
+/// A set of postings in one clearing account that share a matching key (see "Matching key" in
+/// `docs/CLEARING_ACCOUNTS.md`), together with whether they net to zero.
 pub struct ClearingGroup {
+    /// Human-readable label for the matching key, e.g. `match:INV-2044` or `amount 500.00 USD`.
     pub label: String,
+    /// The postings that make up this group.
     pub members: Vec<GroupMember>,
+    /// Sum of every member's quantity. Zero (with `mixed_commodity` false) means cleared.
     pub net: Decimal,
+    /// The group's commodity, or the first one found if `mixed_commodity` is true.
     pub commodity: String,
+    /// True if members span more than one commodity — an anomaly `net`/`cleared` can't
+    /// meaningfully summarize; see `docs/CLEARING_ACCOUNTS.md`.
     pub mixed_commodity: bool,
+    /// True if this group has cleared (nets to zero, single commodity).
     pub cleared: bool,
 }
 
+/// Clearing-group analysis for one account (see [`analyze`]), sorted with outstanding groups
+/// first.
 pub struct ClearingAccountReport {
+    /// The clearing account this report covers.
     pub account: Account,
+    /// Every matching-key group found in this account's postings.
     pub groups: Vec<ClearingGroup>,
 }
 
 impl ClearingAccountReport {
+    /// Number of groups that have cleared (net to zero).
     pub fn cleared_count(&self) -> usize {
         self.groups.iter().filter(|g| g.cleared).count()
     }
 
+    /// Number of groups still outstanding (nonzero net, or a mixed-commodity anomaly).
     pub fn outstanding_count(&self) -> usize {
         self.groups.iter().filter(|g| !g.cleared).count()
     }
@@ -53,10 +75,16 @@ impl ClearingAccountReport {
 /// The tag used to explicitly link postings that belong to the same clearing group.
 const MATCH_TAG: &str = "match";
 
+/// Runs clearing-group analysis for each of `accounts` (postings to the account itself or any
+/// descendant account — see [`Ledger::postings_in`]), one [`ClearingAccountReport`] per account,
+/// in the same order as `accounts`.
 pub fn analyze(ledger: &Ledger, accounts: &[Account]) -> Vec<ClearingAccountReport> {
     accounts.iter().map(|account| analyze_account(ledger, account)).collect()
 }
 
+/// Groups `account`'s postings (and its descendants') by matching key, builds a
+/// [`ClearingGroup`] per key, and orders outstanding groups before cleared ones (then
+/// alphabetically by label) so the report leads with what still needs attention.
 fn analyze_account(ledger: &Ledger, account: &Account) -> ClearingAccountReport {
     let mut groups: BTreeMap<GroupKey, Vec<GroupMember>> = BTreeMap::new();
 
@@ -93,6 +121,8 @@ fn analyze_account(ledger: &Ledger, account: &Account) -> ClearingAccountReport 
     }
 }
 
+/// Computes a group's net, commodity, and cleared status from its members, and renders `key`
+/// into the human-readable label shown in reports.
 fn build_group(key: GroupKey, members: Vec<GroupMember>) -> ClearingGroup {
     let mut commodities: Vec<&str> = members.iter().map(|m| m.commodity.as_str()).collect();
     commodities.sort();
@@ -126,6 +156,9 @@ fn build_group(key: GroupKey, members: Vec<GroupMember>) -> ClearingGroup {
     }
 }
 
+/// Renders one or more clearing-account reports as plain text: a summary line per account, then
+/// each group tagged `CLEARED`, `OUTSTANDING`, or `ANOMALY (mixed commodities)`, with its member
+/// postings listed underneath.
 pub fn render(reports: &[ClearingAccountReport]) -> String {
     let mut out = String::new();
     for report in reports {

@@ -10,35 +10,57 @@ use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
+/// One account's row in a trial balance: its net balance, split into a debit or a credit column
+/// by sign. Exactly one of `debit`/`credit` is nonzero (a row is only created when the
+/// account's net balance is nonzero — see [`build`]).
 pub struct TrialBalanceRow {
+    /// The account this row reports on.
     pub account: Account,
+    /// Nonzero if this account's net balance is positive (a debit balance).
     pub debit: Decimal,
+    /// Nonzero if this account's net balance is negative (a credit balance).
     pub credit: Decimal,
 }
 
+/// A trial balance for a single commodity: every account with a nonzero balance in that
+/// commodity, plus totals. See the module docs for why commodities are never mixed into one
+/// section.
 pub struct TrialBalanceSection {
+    /// The commodity/currency symbol this section reports on.
     pub commodity: String,
+    /// One row per account with a nonzero balance, in account order.
     pub rows: Vec<TrialBalanceRow>,
+    /// Sum of every row's `debit` column.
     pub total_debit: Decimal,
+    /// Sum of every row's `credit` column.
     pub total_credit: Decimal,
 }
 
 impl TrialBalanceSection {
+    /// True if this section's totals foot (debits equal credits). Should always be true if the
+    /// underlying journal balanced at parse time — this is an independent cross-check, not the
+    /// primary place balancing is enforced (see `parser::balance_transaction`).
     pub fn is_balanced(&self) -> bool {
         self.total_debit == self.total_credit
     }
 }
 
+/// The full trial balance report: one [`TrialBalanceSection`] per commodity found in the ledger.
 pub struct TrialBalance {
+    /// Sections in commodity order, one per distinct commodity with any nonzero balance.
     pub sections: Vec<TrialBalanceSection>,
 }
 
 impl TrialBalance {
+    /// True if every section foots. See [`TrialBalanceSection::is_balanced`].
     pub fn is_balanced(&self) -> bool {
         self.sections.iter().all(TrialBalanceSection::is_balanced)
     }
 }
 
+/// Builds a trial balance from a ledger's leaf-account balances: one row per account with a
+/// nonzero net balance, grouped into one section per commodity. Accounts that net exactly to
+/// zero are omitted, per standard trial-balance convention.
 pub fn build(ledger: &Ledger) -> TrialBalance {
     let mut by_commodity: BTreeMap<String, Vec<TrialBalanceRow>> = BTreeMap::new();
 
@@ -81,6 +103,8 @@ pub fn build(ledger: &Ledger) -> TrialBalance {
 }
 
 impl TrialBalance {
+    /// Renders the report as an aligned plain-text table (one block per commodity section),
+    /// suitable for printing directly to a terminal.
     pub fn render(&self) -> String {
         let mut out = String::new();
         if self.sections.is_empty() {

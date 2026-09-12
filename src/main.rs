@@ -1,3 +1,8 @@
+//! `ferro_ledger` binary entry point: parses CLI args (see [`ferro_ledger::cli`]) and dispatches
+//! to one of the `run_*` functions below. Deliberately thin — argument definitions live in
+//! `cli.rs` and all report logic lives in the library crate, so nothing here needs its own
+//! tests.
+
 use clap::Parser;
 use ferro_ledger::cli::{Cli, Command};
 use ferro_ledger::ledger::Ledger;
@@ -20,6 +25,8 @@ fn main() {
     }
 }
 
+/// Runs the `balance`/`trial-balance` subcommand: loads `file`, prints its trial balance, and
+/// fails (nonzero exit) if any commodity section doesn't foot.
 fn run_balance(file: &std::path::Path) -> Result<(), String> {
     let transactions = load_journal(file).map_err(|e| e.to_string())?;
     let ledger = Ledger::from_transactions(transactions);
@@ -31,11 +38,14 @@ fn run_balance(file: &std::path::Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Runs the `check` subcommand: loads and balance-validates `file`, printing nothing on success.
 fn run_check(file: &std::path::Path) -> Result<(), String> {
     load_journal(file).map_err(|e| e.to_string())?;
     Ok(())
 }
 
+/// Runs the `clear` subcommand: loads `file` and prints a clearing-group analysis for each
+/// named account (see [`ferro_ledger::reports::clearing`]).
 fn run_clear(file: &std::path::Path, accounts: &[String]) -> Result<(), String> {
     let transactions = load_journal(file).map_err(|e| e.to_string())?;
     let ledger = Ledger::from_transactions(transactions);

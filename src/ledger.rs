@@ -4,22 +4,33 @@
 use crate::model::{Account, Amount, Posting, Transaction};
 use std::collections::BTreeMap;
 
+/// A journal's transactions, held in memory for the lifetime of one report. Build with
+/// [`Ledger::from_transactions`]; everything else is a read-only query over that data.
 pub struct Ledger {
+    /// All transactions, sorted by date (then by source line, for a stable order within a day).
     pub transactions: Vec<Transaction>,
 }
 
+/// A posting together with the transaction it belongs to, as yielded by [`Ledger::postings`].
+/// Carrying the parent transaction alongside the posting is what lets reports show a posting's
+/// date/description/tags without a separate lookup.
 #[derive(Clone, Copy)]
 pub struct PostingRef<'a> {
+    /// The transaction this posting belongs to.
     pub transaction: &'a Transaction,
+    /// The posting itself.
     pub posting: &'a Posting,
 }
 
 impl Ledger {
+    /// Builds a `Ledger` from parsed transactions, sorting them by date (ties broken by source
+    /// line) for stable, chronological report output.
     pub fn from_transactions(mut transactions: Vec<Transaction>) -> Self {
         transactions.sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.source.line.cmp(&b.source.line)));
         Ledger { transactions }
     }
 
+    /// Iterates every posting in every transaction, each paired with its parent transaction.
     pub fn postings(&self) -> impl Iterator<Item = PostingRef<'_>> {
         self.transactions
             .iter()

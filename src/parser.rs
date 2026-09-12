@@ -7,11 +7,16 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
+/// A journal text file failed to parse. Always names the exact file and line, mirroring
+/// hledger's own error style, so a bad journal is easy to locate and fix.
 #[derive(Debug, thiserror::Error)]
 #[error("{file}:{line}: {message}")]
 pub struct ParseError {
+    /// The file being parsed (as passed in to [`parse_str`]).
     pub file: String,
+    /// 1-based line number where the problem was detected.
     pub line: usize,
+    /// Human-readable description of what went wrong.
     pub message: String,
 }
 
@@ -29,13 +34,19 @@ impl ParseError {
 /// resolution is `journal.rs`'s job, since it knows the including file's directory).
 #[derive(Debug, Clone)]
 pub struct IncludeDirective {
+    /// The path as written in the source, unresolved (may be relative).
     pub path: String,
+    /// Where the `include` line itself appeared.
     pub source: SourcePos,
 }
 
+/// The result of parsing one journal file's text: its transactions, plus any `include`
+/// directives it contains for the caller ([`crate::journal::load_journal`]) to resolve.
 #[derive(Debug, Default)]
 pub struct ParsedJournal {
+    /// Transactions found directly in this file (not counting anything from `include`s).
     pub transactions: Vec<Transaction>,
+    /// `include` directives found in this file, in source order.
     pub includes: Vec<IncludeDirective>,
 }
 
@@ -112,6 +123,10 @@ pub fn parse_str(content: &str, filename: &str) -> Result<ParsedJournal, ParseEr
     Ok(result)
 }
 
+/// If `line` starts with `keyword` followed by whitespace (or is exactly `keyword`), returns
+/// everything after it; otherwise `None`. Used to recognize directive lines without accidentally
+/// matching a longer word that merely starts with the same letters (e.g. `"included"` vs.
+/// `"include"`).
 fn strip_directive<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
     let rest = line.strip_prefix(keyword)?;
     if rest.is_empty() {
@@ -120,6 +135,8 @@ fn strip_directive<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
     rest.starts_with(char::is_whitespace).then_some(rest)
 }
 
+/// Tries each date format accepted by `docs/JOURNAL_FORMAT.md` (`-`, `/`, `.` separators). Only
+/// looks at the part before `=` so it can be handed either a bare date or a `DATE=DATE` token.
 fn try_parse_date_token(tok: &str) -> Option<NaiveDate> {
     let date_part = tok.split('=').next().unwrap_or(tok);
     for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"] {
@@ -245,6 +262,8 @@ fn parse_transaction(
     Ok((transaction, i - start))
 }
 
+/// Parses one already-de-indented posting line (`content` has had its leading whitespace
+/// stripped by the caller, [`parse_transaction`]).
 fn parse_posting(content: &str, filename: &str, line_no: usize) -> Result<Posting, ParseError> {
     let (main, comment) = split_inline_comment(content.trim_end());
     let mut main = main.trim();

@@ -8,20 +8,34 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Everything that can go wrong loading a journal: the file couldn't be read, its contents
+/// didn't parse (see [`ParseError`]), or an `include` chain loops back on itself.
 #[derive(Debug, thiserror::Error)]
 pub enum JournalError {
+    /// A journal file (the top-level one, or one reached via `include`) couldn't be read.
     #[error("failed to read '{path}': {source}")]
     Io {
+        /// The path that failed to read.
         path: String,
+        /// The underlying I/O error.
         #[source]
         source: std::io::Error,
     },
+    /// The journal text didn't match the grammar in `docs/JOURNAL_FORMAT.md`.
     #[error(transparent)]
     Parse(#[from] ParseError),
+    /// An `include` directive forms a cycle (a file including itself, directly or through a
+    /// chain of other includes).
     #[error("circular include detected at '{path}'")]
-    CircularInclude { path: String },
+    CircularInclude {
+        /// The path whose inclusion would re-enter a file already being loaded.
+        path: String,
+    },
 }
 
+/// Loads `path` and recursively resolves any `include` directives it (or its includes) contain,
+/// returning every transaction found across the whole chain. This is the only entry point that
+/// touches the filesystem — see the module docs for why that separation matters.
 pub fn load_journal(path: impl AsRef<Path>) -> Result<Vec<Transaction>, JournalError> {
     let mut visiting = HashSet::new();
     let mut transactions = Vec::new();
