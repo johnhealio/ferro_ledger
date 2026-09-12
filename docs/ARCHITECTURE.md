@@ -4,12 +4,17 @@
 
 ```
 src/
-  main.rs           CLI entry point: arg parsing (clap), dispatch to commands, error printing
-  cli.rs            clap Parser/Subcommand definitions
+  main.rs           CLI entry point: arg parsing (clap), date-range resolution + filtering,
+                     dispatch to commands, error printing
+  cli.rs            clap Parser/Subcommand definitions, incl. shared DateRangeArgs (flattened
+                     into every report subcommand)
   model.rs          Core types: Amount, Account (newtype over String), Posting, Transaction,
                      Status, Tag
-  parser.rs         Hand-written journal text -> Vec<Transaction> parser (+ parser unit tests)
+  parser.rs         Hand-written journal text -> Vec<Transaction> parser (+ parser unit tests);
+                     also exposes parse_date_str, reused by the CLI's date-range flags
   journal.rs        Loads a journal file (and `include`d files) into a Vec<Transaction>
+  date_range.rs     DateRange: the --since/--until window applied to transactions before a
+                     Ledger is built (docs/DATE_RANGE.md)
   ledger.rs         Ledger: owns transactions, indexes postings by account, exposes balance
                      queries (leaf balance, subtree balance via colon-hierarchy rollup)
   account_types.rs  Name-based Asset/Liability/Equity/Revenue/Expense classification, used by
@@ -31,6 +36,8 @@ tests/
   balance_sheet_tests.rs
   income_statement_tests.rs
   clearing_tests.rs
+  date_range_tests.rs         library-level DateRange::filter tests
+  cli_date_range_tests.rs     end-to-end tests against the built binary (CARGO_BIN_EXE_*)
 ```
 
 ## Data flow
@@ -43,8 +50,11 @@ journal file(s) on disk
         │                                   │
         │ (balance-check each txn)          │
         ▼                                   ▼
-   journal::load()                     ledger::Ledger::from_transactions()
+   journal::load()                     DateRange::filter()   (--since/--until, no-op if unset)
    (resolves `include`)                        │
+                                                ▼
+                                     ledger::Ledger::from_transactions()
+                                                │
                                                 ▼
           reports::trial_balance / reports::balance_sheet / reports::income_statement / reports::clearing
                                                 │
@@ -90,6 +100,17 @@ can drift from the text file.
 No caching layer beyond this in-memory struct for the lifetime of one CLI invocation — it is
 rebuilt from the parsed transactions every run, per the no-database rule.
 
+## Date-range filtering (`date_range.rs`)
+
+`DateRange { since: Option<NaiveDate>, until: Option<NaiveDate> }` with
+`filter(Vec<Transaction>) -> Vec<Transaction>` (inclusive `since`, exclusive `until`; see
+`docs/DATE_RANGE.md`) is applied in `main.rs` between `journal::load_journal` and
+`Ledger::from_transactions` — a `Ledger` never knows whether it was built from the whole journal
+or a scoped window, which is exactly why every report module stays date-unaware. The CLI's
+`--since`/`--until` strings are parsed by `parser::parse_date_str`, the same function the
+journal parser itself uses for transaction dates, so a date string means the same thing on the
+command line as it does in the journal.
+
 ## Account classification (`account_types.rs`)
 
 `classify(&Account) -> Option<AccountType>` maps an account's top-level segment
@@ -108,19 +129,30 @@ separate means report logic is unit-testable without stdout capture.
 - `trial_balance::build(&Ledger) -> TrialBalance` / `TrialBalance::render() -> String`
 - `balance_sheet::build(&Ledger) -> BalanceSheetReport` / `BalanceSheetReport::render() -> String`
   — see `docs/BALANCE_SHEET.md` for the account-classification and net-income-folding design.
+- `income_statement::build(&Ledger) -> IncomeStatementReport` /
+  `IncomeStatementReport::render() -> String` — see `docs/INCOME_STATEMENT.md`.
 - `clearing::analyze(&Ledger, accounts: &[Account]) -> Vec<ClearingAccountReport>` /
   `clearing::render(&[ClearingAccountReport]) -> String`
 
 ## CLI (`cli.rs`, `main.rs`)
 
-`clap` derive-based subcommands:
+`clap` derive-based subcommands, all but `check` also taking the flattened `DateRangeArgs`
+(`--since`/`--until`, see `docs/DATE_RANGE.md`):
 
-- `ferro_ledger balance <FILE>` (alias `trial-balance`) — trial balance report.
-- `ferro_ledger balance-sheet <FILE>` (alias `bs`) — balance sheet report.
-- `ferro_ledger clear <FILE> --account <ACCOUNT>...` — clearing-account matching report.
+- `ferro_ledger balance <FILE> [--since DATE] [--until DATE]` (alias `trial-balance`) — trial
+  balance report.
+- `ferro_ledger balance-sheet <FILE> [--since DATE] [--until DATE]` (alias `bs`) — balance sheet
+  report.
+- `ferro_ledger income-statement <FILE> [--since DATE] [--until DATE]` (alias `is`) — income
+  statement report.
+- `ferro_ledger clear <FILE> --account <ACCOUNT>... [--since DATE] [--until DATE]` —
+  clearing-account matching report.
 - `ferro_ledger check <FILE>` — parse + balance-validate only, exit non-zero on any error
-  (useful as a pre-commit/CI check on the journal, same spirit as `hledger check`).
+  (useful as a pre-commit/CI check on the journal, same spirit as `hledger check`); deliberately
+  has no date-range flags — see `docs/DATE_RANGE.md`.
 
-`main.rs` is intentionally thin: parse args, call into `journal`/`ledger`/`reports`, format
-errors for a human, set exit code. All real logic is in the library modules so it's testable
-without spawning the binary.
+`main.rs` is intentionally thin: parse args, resolve `--since`/`--until` into a `DateRange` and
+filter, call into `journal`/`ledger`/`reports`, format errors for a human, set exit code. All
+real logic is in the library modules so it's testable without spawning the binary — except the
+CLI wiring itself (clap's `#[command(flatten)]`, argument parsing end to end), which
+`tests/cli_date_range_tests.rs` tests by running the actual compiled binary.

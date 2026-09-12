@@ -27,15 +27,19 @@ Net income = Total Revenue − Total Expenses
 Rendered as `NET INCOME: <amount>` when nonnegative, `NET LOSS: <amount>` (still with its actual
 sign) when negative.
 
-## No date-range filtering (v1 limitation)
+## Scoping to a fiscal period
 
-A real income statement is scoped to a fiscal period ("Q1 2024," "the year ended..."). v1 has no
-date-range flags anywhere in the CLI — every report, including this one, covers the *entire*
-journal every time, same limitation the trial balance and balance sheet already have. This means
-`ferro_ledger income-statement` today answers "what's the cumulative net income across
-everything in this journal file," not "what happened last month." A natural follow-up (not yet
-implemented) would add `--since`/`--until` (or a single `--period`) flags shared across all
-three reports, filtering transactions by `date` before anything else runs.
+A real income statement is scoped to a fiscal period ("Q1 2024," "the year ended..."). Use
+`--since`/`--until` to scope this report (and every other report command) to a date window
+before anything else runs — see `docs/DATE_RANGE.md` for the full semantics
+(inclusive-start/exclusive-end, accepted formats):
+
+```sh
+cargo run -- income-statement examples/sample.journal --since 2024-01-01 --until 2024-02-01
+```
+
+Without either flag, this report covers the *entire* journal, same as it always has — that's
+still the default, not a special case.
 
 ## Relationship to the balance sheet
 
@@ -50,4 +54,6 @@ income_statement::build(&ledger).statements[i].net_income()
 ```
 
 `tests/income_statement_tests.rs` asserts this directly. If you ever see these two numbers
-disagree, that's a bug in one of the two reports, not an expected discrepancy.
+disagree, that's a bug in one of the two reports, not an expected discrepancy — including when
+run with matching `--since`/`--until` values, since both commands filter transactions the same
+way before building their respective report from them.

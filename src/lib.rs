@@ -11,6 +11,9 @@
 //! - [`parser`] — hand-written journal text -> [`model::Transaction`] parser. Pure, no I/O.
 //! - [`journal`] — loads a journal file from disk, resolving `include` directives; the only
 //!   place file I/O happens.
+//! - [`date_range`] — the `--since`/`--until` window every report command applies to a
+//!   journal's transactions before building a [`ledger::Ledger`] from them (see
+//!   `docs/DATE_RANGE.md`).
 //! - [`ledger`] — [`ledger::Ledger`], an in-memory index over parsed transactions with
 //!   account-balance queries.
 //! - [`reports`] — [`reports::trial_balance`] (the primary report), [`reports::balance_sheet`]
@@ -27,6 +30,7 @@
 
 pub mod account_types;
 pub mod cli;
+pub mod date_range;
 pub mod journal;
 pub mod ledger;
 pub mod model;

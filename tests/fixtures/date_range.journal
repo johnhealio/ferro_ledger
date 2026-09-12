@@ -1,0 +1,11 @@
+2024-01-01 * Opening balances
+    Assets:Bank:Checking   1000.00 USD
+    Equity:OpeningBalance -1000.00 USD
+
+2024-02-15 * February consulting revenue
+    Assets:Bank:Checking    500.00 USD
+    Income:Consulting      -500.00 USD
+
+2024-03-20 * March office rent
+    Expenses:Rent           200.00 USD
+    Assets:Bank:Checking

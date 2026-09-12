@@ -139,8 +139,17 @@ fn strip_directive<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
 /// looks at the part before `=` so it can be handed either a bare date or a `DATE=DATE` token.
 fn try_parse_date_token(tok: &str) -> Option<NaiveDate> {
     let date_part = tok.split('=').next().unwrap_or(tok);
+    parse_date_str(date_part)
+}
+
+/// Parses a single date in any of the formats this journal grammar accepts: `YYYY-MM-DD`,
+/// `YYYY/MM/DD`, or `YYYY.MM.DD`. Public (unlike this module's private `try_parse_date_token`,
+/// which also handles the journal-only `DATE=DATE` secondary-date token) so callers outside the
+/// parser — notably the CLI's `--since`/`--until` date-range flags, see [`crate::date_range`] —
+/// parse dates the same way the journal grammar itself does.
+pub fn parse_date_str(s: &str) -> Option<NaiveDate> {
     for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"] {
-        if let Ok(d) = NaiveDate::parse_from_str(date_part, fmt) {
+        if let Ok(d) = NaiveDate::parse_from_str(s, fmt) {
             return Some(d);
         }
     }

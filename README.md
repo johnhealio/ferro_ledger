@@ -12,6 +12,8 @@ A text-based, command-line general ledger, written in Rust.
 - **Trial balance is the primary report**, plus a balance sheet, an income statement, and a
   clearing/suspense-account analyzer for tracking groups of postings (e.g. a payment recorded
   now, settled later) until they net to zero.
+- **Every report can be scoped to a date range** with `--since`/`--until`, so you can ask "what
+  did January look like" without editing the journal.
 
 ## Why
 
@@ -125,9 +127,33 @@ Clearing account: Assets:Clearing:Payments
 |---|---|
 | `ferro_ledger balance <FILE>` (alias `trial-balance`) | Prints a trial balance: one row per account, debit/credit columns, one section per commodity. Exits non-zero if a section doesn't foot. |
 | `ferro_ledger balance-sheet <FILE>` (alias `bs`) | Prints a balance sheet: Assets, Liabilities, and Equity, classified from each account's top-level segment. Exits non-zero if it doesn't balance. |
-| `ferro_ledger income-statement <FILE>` (alias `is`) | Prints an income statement: Revenue, Expenses, and net income/loss, covering the whole journal (no date-range filtering yet). |
+| `ferro_ledger income-statement <FILE>` (alias `is`) | Prints an income statement: Revenue, Expenses, and net income/loss. |
 | `ferro_ledger clear <FILE> --account <ACCOUNT>...` | Groups a clearing/suspense account's postings by matching key and reports which groups have cleared (net to zero) vs. are still outstanding. Repeat `--account` for multiple accounts. |
 | `ferro_ledger check <FILE>` | Parses and balance-validates the journal only. Prints nothing and exits 0 on success — useful in CI/pre-commit. |
+
+`balance`, `balance-sheet`, `income-statement`, and `clear` all also accept `--since <DATE>`
+and/or `--until <DATE>` (inclusive start, exclusive end — see
+[`docs/DATE_RANGE.md`](docs/DATE_RANGE.md)) to scope the report to a date window:
+
+```sh
+cargo run -- balance examples/sample.journal --since 2024-01-20
+```
+
+```
+Period: 2024-01-20 onward
+
+Commodity: USD
+Account                            Debit          Credit
+--------------------------------------------------------
+Assets:Bank:Checking                             1500.00
+Expenses:Payroll:Gross           2000.00
+Liabilities:PayrollTaxes                          500.00
+--------------------------------------------------------
+TOTAL                            2000.00         2000.00
+```
+
+`check` deliberately has no date-range flags — it validates that every transaction balances,
+which isn't a date-scoped property.
 
 ## Writing a journal
 
@@ -181,7 +207,8 @@ mismatched), so tag anything you care about reconciling correctly. Full design:
 - [`docs/BALANCE_SHEET.md`](docs/BALANCE_SHEET.md) — balance sheet: account classification, net
   income folding.
 - [`docs/INCOME_STATEMENT.md`](docs/INCOME_STATEMENT.md) — income statement: Revenue/Expenses,
-  net income, no date filtering yet.
+  net income.
+- [`docs/DATE_RANGE.md`](docs/DATE_RANGE.md) — `--since`/`--until` date-range scoping.
 - [`docs/CLEARING_ACCOUNTS.md`](docs/CLEARING_ACCOUNTS.md) — clearing/suspense account design.
 
 API docs (rustdoc) can be built locally:
@@ -201,9 +228,9 @@ cargo fmt
 ## Status / roadmap
 
 v1 covers: journal parsing, double-entry validation, trial balance, balance sheet, income
-statement, and clearing-account analysis. Not yet implemented: date-range filtering (every
-report currently covers the whole journal), multi-currency conversion, and a journal-rewriting
-`clear --mark` mode. See [`docs/PLANNING.md`](docs/PLANNING.md) for details.
+statement, clearing-account analysis, and date-range filtering. Not yet implemented:
+multi-currency conversion, a journal-rewriting `clear --mark` mode, and a `--period` shorthand
+for date ranges. See [`docs/PLANNING.md`](docs/PLANNING.md) for details.
 
 ## License
 

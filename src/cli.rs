@@ -1,7 +1,7 @@
 //! Command-line argument definitions ([`clap`] derive), kept separate from `main.rs` so the
 //! argument surface is easy to scan in one place and unit-testable independent of process I/O.
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 /// Top-level CLI: `ferro_ledger <SUBCOMMAND> ...`. Parsed with [`clap::Parser::parse`] in
@@ -18,6 +18,22 @@ pub struct Cli {
     pub command: Command,
 }
 
+/// The `--since`/`--until` date-range flags shared by every report subcommand that builds a
+/// [`crate::ledger::Ledger`] (see `docs/DATE_RANGE.md`). Flattened into each such variant of
+/// [`Command`] rather than duplicated, so the two flags always mean the same thing everywhere.
+#[derive(Args, Debug, Clone, Default)]
+pub struct DateRangeArgs {
+    /// Only include transactions on or after this date (inclusive). Accepts YYYY-MM-DD,
+    /// YYYY/MM/DD, or YYYY.MM.DD — the same formats journal dates use.
+    #[arg(long)]
+    pub since: Option<String>,
+
+    /// Only include transactions strictly before this date (exclusive). Same accepted formats
+    /// as `--since`.
+    #[arg(long)]
+    pub until: Option<String>,
+}
+
 /// The available subcommands, one per report/action `main.rs` can run.
 #[derive(Subcommand)]
 pub enum Command {
@@ -26,6 +42,10 @@ pub enum Command {
     Balance {
         /// Path to the journal file.
         file: PathBuf,
+
+        /// `--since`/`--until` date-range scoping.
+        #[command(flatten)]
+        date_range: DateRangeArgs,
     },
 
     /// Print a balance sheet: Assets, Liabilities, and Equity, classified from each account's
@@ -34,18 +54,27 @@ pub enum Command {
     BalanceSheet {
         /// Path to the journal file.
         file: PathBuf,
+
+        /// `--since`/`--until` date-range scoping.
+        #[command(flatten)]
+        date_range: DateRangeArgs,
     },
 
-    /// Print an income statement (profit & loss): Revenue and Expenses across the whole
-    /// journal, ending in a net income/loss line. See docs/INCOME_STATEMENT.md.
+    /// Print an income statement (profit & loss): Revenue and Expenses, ending in a net
+    /// income/loss line. See docs/INCOME_STATEMENT.md.
     #[command(alias = "is")]
     IncomeStatement {
         /// Path to the journal file.
         file: PathBuf,
+
+        /// `--since`/`--until` date-range scoping.
+        #[command(flatten)]
+        date_range: DateRangeArgs,
     },
 
     /// Parse and balance-check the journal only; prints nothing and exits 0 on success, or
-    /// prints the parse error and exits non-zero.
+    /// prints the parse error and exits non-zero. Not scoped by `--since`/`--until` — every
+    /// transaction is balance-checked regardless of date.
     Check {
         /// Path to the journal file.
         file: PathBuf,
@@ -60,5 +89,9 @@ pub enum Command {
         /// Clearing account to analyze. Repeat for multiple accounts.
         #[arg(long = "account", required = true)]
         accounts: Vec<String>,
+
+        /// `--since`/`--until` date-range scoping.
+        #[command(flatten)]
+        date_range: DateRangeArgs,
     },
 }

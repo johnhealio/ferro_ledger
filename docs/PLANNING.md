@@ -90,9 +90,25 @@ re-computed — this mirrors hledger/ledger-cli exactly.
 - [x] Integration tests: `tests/income_statement_tests.rs`, including a direct cross-check that
       its net income always equals the balance sheet's folded-in "Net Income (unclosed)" row —
       both are computed from the same Revenue/Expense balances.
-- [x] Known v1 limitation (not addressed this phase): no date-range filtering anywhere in the
-      CLI, so this report — like every other report — covers the whole journal, not a fiscal
-      period. See "No date-range filtering" in `docs/INCOME_STATEMENT.md`.
+- [x] Known v1 limitation, resolved in Phase 7 below: date-range filtering.
+
+### Phase 7 — Date-range filtering
+- [x] Design doc (`docs/DATE_RANGE.md`) settled: `--since` (inclusive) / `--until` (exclusive)
+      flags, mirroring hledger's `-b`/`-e` under clearer names; `src/date_range.rs`'s
+      `DateRange::filter` applied to a journal's `Vec<Transaction>` in `main.rs`, strictly
+      *before* a `Ledger` is built — every report module stays exactly as date-unaware as
+      before, filtering is entirely main.rs's/date_range.rs's concern.
+- [x] `parser::parse_date_str` made public and reused by the CLI flags, so a date string means
+      the same thing on the command line as it does inside a journal file.
+- [x] `#[command(flatten)] date_range: DateRangeArgs` on every report subcommand
+      (`balance`/`balance-sheet`/`income-statement`/`clear`); `check` deliberately excluded (see
+      `docs/DATE_RANGE.md`, "`check` is intentionally not scoped").
+- [x] A one-line "Period: ..." header printed before scoped report output, so it's visually
+      obvious a result is filtered rather than covering the whole journal.
+- [x] Integration tests: `tests/date_range_tests.rs` (library-level `DateRange::filter`
+      semantics) and `tests/cli_date_range_tests.rs` (end-to-end against the actual compiled
+      binary via `CARGO_BIN_EXE_ferro_ledger`, including the invalid-date error path and that
+      `check` rejects the flags).
 
 ## Quick start
 
@@ -101,6 +117,7 @@ cargo run -- balance examples/sample.journal          # trial balance (alias: tr
 cargo run -- balance-sheet examples/sample.journal     # balance sheet (alias: bs)
 cargo run -- income-statement examples/sample.journal  # income statement (alias: is)
 cargo run -- clear examples/sample.journal --account Assets:Clearing:Payments --account Assets:Clearing:Payroll
+cargo run -- balance examples/sample.journal --since 2024-01-01 --until 2024-02-01  # date-scoped
 cargo run -- check examples/sample.journal             # parse + balance-validate only
 cargo test                                             # unit + integration tests
 ```
@@ -109,8 +126,9 @@ cargo test                                             # unit + integration test
 
 - Multi-currency conversion / exchange rates (`P` price directives) — parsed-and-ignored at most.
 - Budgets, forecasting, periodic transactions.
-- Date-range filtering (a fiscal period, `--since`/`--until`) — every report, including the new
-  income statement, covers the whole journal every run. See `docs/INCOME_STATEMENT.md`.
+- A `--period` shorthand expression (hledger's `-p "jan-mar 2024"` style) that expands to an
+  equivalent `--since`/`--until` pair — the two explicit flags cover the same ground with more
+  typing. See "Not implemented: a `--period` shorthand" in `docs/DATE_RANGE.md`.
 - A real `close` (period-end closing entry) command — the balance sheet's net-income folding
   (`docs/BALANCE_SHEET.md`) is a computed stand-in, not a replacement.
 - `account`-directive account types (`account Assets:Bank ; type:A`) — the balance sheet's and
@@ -136,11 +154,20 @@ cargo test                                             # unit + integration test
   Accounts the classifier can't place are excluded and listed explicitly rather than guessed at,
   for the same "don't silently do the wrong thing" reason `docs/CLEARING_ACCOUNTS.md` gives for
   flagging mixed-commodity clearing groups as an anomaly instead of quietly netting them.
+- **Date-range filtering happens on `Vec<Transaction>`, before the `Ledger` exists**, not as a
+  parameter threaded through every report's `build()`. This keeps every report module exactly as
+  simple and date-unaware as it was before the feature existed, at the cost of `main.rs` doing
+  slightly more work per subcommand. See `docs/DATE_RANGE.md`.
+- **`--since`/`--until` over a single `--period` expression**: two explicit flags are simpler to
+  implement and to reason about than parsing hledger-style period expressions, at the cost of
+  more typing for the common cases a period expression would shorten. Revisit if that friction
+  turns out to matter in practice.
 
 ## Status
 
-Phases 0–6 are complete: parser, ledger, trial balance, balance sheet, income statement, and
-clearing-account analysis are all implemented and tested (`cargo test`: 29 passed; `cargo clippy
---all-targets`: clean; `cargo doc --no-deps`: clean). Next natural increments: date-range
-filtering (shared across all report commands), multi-currency conversion, and a
-journal-rewriting `clear --mark` mode (see "Future work" in `docs/CLEARING_ACCOUNTS.md`).
+Phases 0–7 are complete: parser, ledger, trial balance, balance sheet, income statement,
+clearing-account analysis, and date-range filtering are all implemented and tested (`cargo
+test`: 39 passed; `cargo clippy --all-targets`: clean; `cargo doc --no-deps`: clean). Next
+natural increments: multi-currency conversion, a journal-rewriting `clear --mark` mode (see
+"Future work" in `docs/CLEARING_ACCOUNTS.md`), and possibly a `--period` shorthand if
+`--since`/`--until` proves too verbose in practice.
