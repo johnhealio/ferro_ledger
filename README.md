@@ -12,8 +12,9 @@ A text-based, command-line general ledger, written in Rust.
 - **Trial balance is the primary report**, plus a balance sheet, an income statement, and a
   clearing/suspense-account analyzer for tracking groups of postings (e.g. a payment recorded
   now, settled later) until they net to zero.
-- **Every report can be scoped to a date range** with `--since`/`--until`, so you can ask "what
-  did January look like" without editing the journal.
+- **Every report can be scoped to a date range** with `--since`/`--until`, or the `--period`
+  shorthand (`--period 2024-01`), so you can ask "what did January look like" without editing
+  the journal.
 
 ## Why
 
@@ -132,8 +133,8 @@ Clearing account: Assets:Clearing:Payments
 | `ferro_ledger check <FILE>` | Parses and balance-validates the journal only. Prints nothing and exits 0 on success — useful in CI/pre-commit. |
 
 `balance`, `balance-sheet`, `income-statement`, and `clear` all also accept `--since <DATE>`
-and/or `--until <DATE>` (inclusive start, exclusive end — see
-[`docs/DATE_RANGE.md`](docs/DATE_RANGE.md)) to scope the report to a date window:
+and/or `--until <DATE>` (inclusive start, exclusive end), or the `--period <EXPR>` shorthand for
+both at once — see [`docs/DATE_RANGE.md`](docs/DATE_RANGE.md):
 
 ```sh
 cargo run -- balance examples/sample.journal --since 2024-01-20
@@ -152,7 +153,16 @@ Liabilities:PayrollTaxes                          500.00
 TOTAL                            2000.00         2000.00
 ```
 
-`check` deliberately has no date-range flags — it validates that every transaction balances,
+`--period` covers the common cases with less typing — a bare year, a year-month, a single day,
+or a `"TERM to TERM"` range:
+
+```sh
+cargo run -- balance examples/sample.journal --period 2024-01           # same as --since 2024-01-01 --until 2024-02-01
+cargo run -- income-statement examples/sample.journal --period "2024-01 to 2024-03"   # Q1
+```
+
+`--period` can't be combined with `--since`/`--until` (clap rejects it directly), and `check`
+deliberately has no date-range flags at all — it validates that every transaction balances,
 which isn't a date-scoped property.
 
 ## Writing a journal
@@ -208,7 +218,7 @@ mismatched), so tag anything you care about reconciling correctly. Full design:
   income folding.
 - [`docs/INCOME_STATEMENT.md`](docs/INCOME_STATEMENT.md) — income statement: Revenue/Expenses,
   net income.
-- [`docs/DATE_RANGE.md`](docs/DATE_RANGE.md) — `--since`/`--until` date-range scoping.
+- [`docs/DATE_RANGE.md`](docs/DATE_RANGE.md) — `--since`/`--until`/`--period` date-range scoping.
 - [`docs/CLEARING_ACCOUNTS.md`](docs/CLEARING_ACCOUNTS.md) — clearing/suspense account design.
 
 API docs (rustdoc) can be built locally:
@@ -228,9 +238,9 @@ cargo fmt
 ## Status / roadmap
 
 v1 covers: journal parsing, double-entry validation, trial balance, balance sheet, income
-statement, clearing-account analysis, and date-range filtering. Not yet implemented:
-multi-currency conversion, a journal-rewriting `clear --mark` mode, and a `--period` shorthand
-for date ranges. See [`docs/PLANNING.md`](docs/PLANNING.md) for details.
+statement, clearing-account analysis, and date-range filtering (including the `--period`
+shorthand). Not yet implemented: multi-currency conversion and a journal-rewriting `clear --mark`
+mode. See [`docs/PLANNING.md`](docs/PLANNING.md) for details.
 
 ## License
 

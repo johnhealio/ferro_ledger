@@ -15,6 +15,8 @@ src/
   journal.rs        Loads a journal file (and `include`d files) into a Vec<Transaction>
   date_range.rs     DateRange: the --since/--until window applied to transactions before a
                      Ledger is built (docs/DATE_RANGE.md)
+  period.rs         --period shorthand: expands an expression like "2024-01 to 2024-03" into
+                     the equivalent DateRange (docs/DATE_RANGE.md)
   ledger.rs         Ledger: owns transactions, indexes postings by account, exposes balance
                      queries (leaf balance, subtree balance via colon-hierarchy rollup)
   account_types.rs  Name-based Asset/Liability/Equity/Revenue/Expense classification, used by
@@ -100,7 +102,7 @@ can drift from the text file.
 No caching layer beyond this in-memory struct for the lifetime of one CLI invocation — it is
 rebuilt from the parsed transactions every run, per the no-database rule.
 
-## Date-range filtering (`date_range.rs`)
+## Date-range filtering (`date_range.rs`, `period.rs`)
 
 `DateRange { since: Option<NaiveDate>, until: Option<NaiveDate> }` with
 `filter(Vec<Transaction>) -> Vec<Transaction>` (inclusive `since`, exclusive `until`; see
@@ -110,6 +112,12 @@ or a scoped window, which is exactly why every report module stays date-unaware.
 `--since`/`--until` strings are parsed by `parser::parse_date_str`, the same function the
 journal parser itself uses for transaction dates, so a date string means the same thing on the
 command line as it does in the journal.
+
+`period::parse_period(&str) -> Result<DateRange, String>` is a separate, small parser for the
+`--period` shorthand (`2024`, `2024-01`, `"2024-01 to 2024-03"`, ...) that produces the exact
+same `DateRange` type — `main.rs`'s `resolve_date_range` picks whichever of `--period` or
+`--since`/`--until` was actually supplied (clap's `conflicts_with` guarantees it's never both)
+and everything downstream is identical either way.
 
 ## Account classification (`account_types.rs`)
 
@@ -137,22 +145,23 @@ separate means report logic is unit-testable without stdout capture.
 ## CLI (`cli.rs`, `main.rs`)
 
 `clap` derive-based subcommands, all but `check` also taking the flattened `DateRangeArgs`
-(`--since`/`--until`, see `docs/DATE_RANGE.md`):
+(`--since`/`--until`/`--period`, see `docs/DATE_RANGE.md`):
 
-- `ferro_ledger balance <FILE> [--since DATE] [--until DATE]` (alias `trial-balance`) — trial
-  balance report.
-- `ferro_ledger balance-sheet <FILE> [--since DATE] [--until DATE]` (alias `bs`) — balance sheet
-  report.
-- `ferro_ledger income-statement <FILE> [--since DATE] [--until DATE]` (alias `is`) — income
-  statement report.
-- `ferro_ledger clear <FILE> --account <ACCOUNT>... [--since DATE] [--until DATE]` —
-  clearing-account matching report.
+- `ferro_ledger balance <FILE> [--since DATE] [--until DATE] [--period EXPR]` (alias
+  `trial-balance`) — trial balance report.
+- `ferro_ledger balance-sheet <FILE> [...]` (alias `bs`) — balance sheet report.
+- `ferro_ledger income-statement <FILE> [...]` (alias `is`) — income statement report.
+- `ferro_ledger clear <FILE> --account <ACCOUNT>... [...]` — clearing-account matching report.
 - `ferro_ledger check <FILE>` — parse + balance-validate only, exit non-zero on any error
   (useful as a pre-commit/CI check on the journal, same spirit as `hledger check`); deliberately
   has no date-range flags — see `docs/DATE_RANGE.md`.
 
-`main.rs` is intentionally thin: parse args, resolve `--since`/`--until` into a `DateRange` and
-filter, call into `journal`/`ledger`/`reports`, format errors for a human, set exit code. All
-real logic is in the library modules so it's testable without spawning the binary — except the
-CLI wiring itself (clap's `#[command(flatten)]`, argument parsing end to end), which
-`tests/cli_date_range_tests.rs` tests by running the actual compiled binary.
+`--period` conflicts with `--since`/`--until` at the clap level (`conflicts_with` on the
+`DateRangeArgs` fields) — clap rejects the combination itself, with its own error, before
+`main.rs`'s `resolve_date_range` ever runs.
+
+`main.rs` is intentionally thin: parse args, resolve `--since`/`--until`/`--period` into a
+`DateRange` and filter, call into `journal`/`ledger`/`reports`, format errors for a human, set
+exit code. All real logic is in the library modules so it's testable without spawning the binary
+— except the CLI wiring itself (clap's `#[command(flatten)]`/`conflicts_with`, argument parsing
+end to end), which `tests/cli_date_range_tests.rs` tests by running the actual compiled binary.

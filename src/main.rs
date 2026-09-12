@@ -9,6 +9,7 @@ use ferro_ledger::date_range::DateRange;
 use ferro_ledger::ledger::Ledger;
 use ferro_ledger::model::{Account, Transaction};
 use ferro_ledger::parser::parse_date_str;
+use ferro_ledger::period::parse_period;
 use ferro_ledger::reports::{balance_sheet, clearing, income_statement, trial_balance};
 use ferro_ledger::journal::load_journal;
 
@@ -29,9 +30,14 @@ fn main() {
     }
 }
 
-/// Parses `args.since`/`args.until` (if present) into a [`DateRange`], with a clear error
-/// naming the flag and the accepted formats if either fails to parse.
+/// Resolves `args` into a [`DateRange`]: either `--period` (expanded via
+/// [`ferro_ledger::period::parse_period`]) or `--since`/`--until` — clap's `conflicts_with`
+/// (see `cli.rs`) already guarantees at most one of these forms was actually supplied, so this
+/// never has to choose between them.
 fn resolve_date_range(args: &DateRangeArgs) -> Result<DateRange, String> {
+    if let Some(period) = &args.period {
+        return parse_period(period).map_err(|e| format!("invalid --period '{}': {}", period, e));
+    }
     let since = parse_date_flag("--since", &args.since)?;
     let until = parse_date_flag("--until", &args.until)?;
     Ok(DateRange::new(since, until))

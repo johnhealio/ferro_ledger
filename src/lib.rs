@@ -14,6 +14,8 @@
 //! - [`date_range`] — the `--since`/`--until` window every report command applies to a
 //!   journal's transactions before building a [`ledger::Ledger`] from them (see
 //!   `docs/DATE_RANGE.md`).
+//! - [`period`] — the `--period` shorthand that expands to an equivalent [`date_range::DateRange`]
+//!   (e.g. `2024`, `2024-01 to 2024-03`).
 //! - [`ledger`] — [`ledger::Ledger`], an in-memory index over parsed transactions with
 //!   account-balance queries.
 //! - [`reports`] — [`reports::trial_balance`] (the primary report), [`reports::balance_sheet`]
@@ -35,4 +37,5 @@ pub mod journal;
 pub mod ledger;
 pub mod model;
 pub mod parser;
+pub mod period;
 pub mod reports;

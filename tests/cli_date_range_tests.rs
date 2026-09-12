@@ -1,7 +1,8 @@
-//! End-to-end tests of the `--since`/`--until` flags through the actual `ferro_ledger` binary
-//! (not just the library-level filtering logic — see `date_range_tests.rs` for that), to catch
-//! any wiring mistake in `cli.rs`'s `#[command(flatten)]` or `main.rs`'s flag handling that a
-//! purely library-level test wouldn't see.
+//! End-to-end tests of the `--since`/`--until`/`--period` flags through the actual
+//! `ferro_ledger` binary (not just the library-level filtering/period-parsing logic — see
+//! `date_range_tests.rs` and `src/period.rs`'s own unit tests for that), to catch any wiring
+//! mistake in `cli.rs`'s `#[command(flatten)]`/`conflicts_with` or `main.rs`'s flag handling
+//! that a purely library-level test wouldn't see.
 
 use std::process::Command;
 
@@ -76,4 +77,52 @@ fn check_subcommand_has_no_date_range_flags() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("unexpected argument"));
+}
+
+#[test]
+fn period_flag_expands_to_the_equivalent_since_until_window() {
+    let output = run(&["balance", fixture_path().to_str().unwrap(), "--period", "2024-02"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Period: 2024-02-01 to 2024-03-01 (exclusive)"));
+    assert!(stdout.contains("Income:Consulting"));
+    assert!(!stdout.contains("Equity:OpeningBalance"));
+    assert!(!stdout.contains("Expenses:Rent"));
+}
+
+#[test]
+fn period_flag_accepts_a_quoted_range_expression() {
+    let output = run(&[
+        "income-statement",
+        fixture_path().to_str().unwrap(),
+        "--period",
+        "2024-02 to 2024-03",
+    ]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Income:Consulting"));
+    assert!(stdout.contains("Expenses:Rent"));
+}
+
+#[test]
+fn period_conflicts_with_since_and_until() {
+    let output = run(&[
+        "balance",
+        fixture_path().to_str().unwrap(),
+        "--period",
+        "2024",
+        "--since",
+        "2024-01-01",
+    ]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("cannot be used with"));
+}
+
+#[test]
+fn invalid_period_flag_fails_with_a_clear_error() {
+    let output = run(&["balance", fixture_path().to_str().unwrap(), "--period", "not a period"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("invalid --period"));
 }

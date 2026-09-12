@@ -18,20 +18,29 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// The `--since`/`--until` date-range flags shared by every report subcommand that builds a
-/// [`crate::ledger::Ledger`] (see `docs/DATE_RANGE.md`). Flattened into each such variant of
-/// [`Command`] rather than duplicated, so the two flags always mean the same thing everywhere.
+/// The `--since`/`--until`/`--period` date-range flags shared by every report subcommand that
+/// builds a [`crate::ledger::Ledger`] (see `docs/DATE_RANGE.md`). Flattened into each such
+/// variant of [`Command`] rather than duplicated, so the flags always mean the same thing
+/// everywhere.
 #[derive(Args, Debug, Clone, Default)]
 pub struct DateRangeArgs {
     /// Only include transactions on or after this date (inclusive). Accepts YYYY-MM-DD,
-    /// YYYY/MM/DD, or YYYY.MM.DD — the same formats journal dates use.
-    #[arg(long)]
+    /// YYYY/MM/DD, or YYYY.MM.DD — the same formats journal dates use. Cannot be combined with
+    /// `--period`.
+    #[arg(long, conflicts_with = "period")]
     pub since: Option<String>,
 
     /// Only include transactions strictly before this date (exclusive). Same accepted formats
-    /// as `--since`.
-    #[arg(long)]
+    /// as `--since`. Cannot be combined with `--period`.
+    #[arg(long, conflicts_with = "period")]
     pub until: Option<String>,
+
+    /// Shorthand for a whole period, expanding to an equivalent `--since`/`--until` pair:
+    /// `YYYY` (a calendar year), `YYYY-MM` (a calendar month), `YYYY-MM-DD` (a single day), or
+    /// `["from"] TERM "to" TERM` for a range of those (e.g. "2024-01 to 2024-03"). See
+    /// docs/DATE_RANGE.md. Cannot be combined with `--since`/`--until`.
+    #[arg(long)]
+    pub period: Option<String>,
 }
 
 /// The available subcommands, one per report/action `main.rs` can run.
@@ -43,7 +52,7 @@ pub enum Command {
         /// Path to the journal file.
         file: PathBuf,
 
-        /// `--since`/`--until` date-range scoping.
+        /// `--since`/`--until`/`--period` date-range scoping.
         #[command(flatten)]
         date_range: DateRangeArgs,
     },
@@ -55,7 +64,7 @@ pub enum Command {
         /// Path to the journal file.
         file: PathBuf,
 
-        /// `--since`/`--until` date-range scoping.
+        /// `--since`/`--until`/`--period` date-range scoping.
         #[command(flatten)]
         date_range: DateRangeArgs,
     },
@@ -67,7 +76,7 @@ pub enum Command {
         /// Path to the journal file.
         file: PathBuf,
 
-        /// `--since`/`--until` date-range scoping.
+        /// `--since`/`--until`/`--period` date-range scoping.
         #[command(flatten)]
         date_range: DateRangeArgs,
     },
@@ -90,7 +99,7 @@ pub enum Command {
         #[arg(long = "account", required = true)]
         accounts: Vec<String>,
 
-        /// `--since`/`--until` date-range scoping.
+        /// `--since`/`--until`/`--period` date-range scoping.
         #[command(flatten)]
         date_range: DateRangeArgs,
     },

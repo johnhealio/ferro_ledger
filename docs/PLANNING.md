@@ -110,6 +110,22 @@ re-computed — this mirrors hledger/ledger-cli exactly.
       binary via `CARGO_BIN_EXE_ferro_ledger`, including the invalid-date error path and that
       `check` rejects the flags).
 
+### Phase 8 — `--period` shorthand
+- [x] Design settled (`docs/DATE_RANGE.md`, "Period shorthand (`--period`)"): a small, fully
+      documented subset of hledger's much richer period-expression language —
+      `["from"] TERM ["to" TERM]` where `TERM` is `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` — parsed by
+      the new `src/period.rs`, `parse_period(&str) -> Result<DateRange, String>`, producing the
+      exact same `DateRange` type `--since`/`--until` already used.
+- [x] `--period` added to `DateRangeArgs`, with `conflicts_with = "period"` on `since`/`until`
+      (clap enforces the "not both forms" rule directly, no hand-rolled validation needed).
+- [x] `main.rs`'s `resolve_date_range` picks `--period` when present, else falls back to
+      `--since`/`--until` — everything downstream (filtering, the "Period: ..." header,
+      per-report logic) is unchanged and unaware of which form the user chose.
+- [x] Unit tests in `src/period.rs` (grammar edge cases: bare year, year-month, single day,
+      mixed-granularity ranges, optional `from`, garbage input) plus CLI-level tests appended to
+      `tests/cli_date_range_tests.rs` (expansion correctness, the since/until conflict, invalid
+      expressions).
+
 ## Quick start
 
 ```sh
@@ -118,6 +134,7 @@ cargo run -- balance-sheet examples/sample.journal     # balance sheet (alias: b
 cargo run -- income-statement examples/sample.journal  # income statement (alias: is)
 cargo run -- clear examples/sample.journal --account Assets:Clearing:Payments --account Assets:Clearing:Payroll
 cargo run -- balance examples/sample.journal --since 2024-01-01 --until 2024-02-01  # date-scoped
+cargo run -- balance examples/sample.journal --period 2024-01               # same, via shorthand
 cargo run -- check examples/sample.journal             # parse + balance-validate only
 cargo test                                             # unit + integration tests
 ```
@@ -126,9 +143,9 @@ cargo test                                             # unit + integration test
 
 - Multi-currency conversion / exchange rates (`P` price directives) — parsed-and-ignored at most.
 - Budgets, forecasting, periodic transactions.
-- A `--period` shorthand expression (hledger's `-p "jan-mar 2024"` style) that expands to an
-  equivalent `--since`/`--until` pair — the two explicit flags cover the same ground with more
-  typing. See "Not implemented: a `--period` shorthand" in `docs/DATE_RANGE.md`.
+- Everything `--period` doesn't cover: month/quarter names, relative dates ("last month"),
+  recurring/interval periods — see "Not implemented" in `docs/DATE_RANGE.md`'s period-shorthand
+  section for the exhaustive list.
 - A real `close` (period-end closing entry) command — the balance sheet's net-income folding
   (`docs/BALANCE_SHEET.md`) is a computed stand-in, not a replacement.
 - `account`-directive account types (`account Assets:Bank ; type:A`) — the balance sheet's and
@@ -158,16 +175,21 @@ cargo test                                             # unit + integration test
   parameter threaded through every report's `build()`. This keeps every report module exactly as
   simple and date-unaware as it was before the feature existed, at the cost of `main.rs` doing
   slightly more work per subcommand. See `docs/DATE_RANGE.md`.
-- **`--since`/`--until` over a single `--period` expression**: two explicit flags are simpler to
-  implement and to reason about than parsing hledger-style period expressions, at the cost of
-  more typing for the common cases a period expression would shorten. Revisit if that friction
-  turns out to matter in practice.
+- **`--period` requires the word `to` as its range separator**, not a bare dash, even though
+  hledger itself allows a dash in some contexts. A bare-dash range (`2024-01-2024-03`) is
+  genuinely ambiguous against a plain date's own dashes without much more lookahead logic;
+  requiring `to` (optionally preceded by `from`) sidesteps the ambiguity entirely at the cost of
+  a few extra characters to type. See `docs/DATE_RANGE.md`.
+- **`--period` conflicts with `--since`/`--until` via clap's `conflicts_with`**, rather than
+  letting them combine (e.g. `--period` setting a default that `--since` could override).
+  Combining them raises the question of which one wins for the overlapping bound, with no
+  obviously-right answer; rejecting the combination outright avoids the CLI ever needing to
+  answer it.
 
 ## Status
 
-Phases 0–7 are complete: parser, ledger, trial balance, balance sheet, income statement,
-clearing-account analysis, and date-range filtering are all implemented and tested (`cargo
-test`: 39 passed; `cargo clippy --all-targets`: clean; `cargo doc --no-deps`: clean). Next
-natural increments: multi-currency conversion, a journal-rewriting `clear --mark` mode (see
-"Future work" in `docs/CLEARING_ACCOUNTS.md`), and possibly a `--period` shorthand if
-`--since`/`--until` proves too verbose in practice.
+Phases 0–8 are complete: parser, ledger, trial balance, balance sheet, income statement,
+clearing-account analysis, date-range filtering, and the `--period` shorthand are all
+implemented and tested (`cargo test`: 50 passed; `cargo clippy --all-targets`: clean; `cargo doc
+--no-deps`: clean). Next natural increments: multi-currency conversion and a journal-rewriting
+`clear --mark` mode (see "Future work" in `docs/CLEARING_ACCOUNTS.md`).

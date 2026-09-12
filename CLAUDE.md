@@ -31,7 +31,7 @@ Read [docs/PLANNING.md](docs/PLANNING.md) for project phasing/status and
 | `docs/CLEARING_ACCOUNTS.md` | Clearing/suspense account design: matching & clearing semantics |
 | `docs/BALANCE_SHEET.md` | Balance sheet report: account-type classification, net-income folding |
 | `docs/INCOME_STATEMENT.md` | Income statement report: Revenue/Expenses, net income |
-| `docs/DATE_RANGE.md` | `--since`/`--until` date-range scoping, shared by every report command |
+| `docs/DATE_RANGE.md` | `--since`/`--until`/`--period` date-range scoping, shared by every report command |
 
 ## Conventions for this codebase
 
