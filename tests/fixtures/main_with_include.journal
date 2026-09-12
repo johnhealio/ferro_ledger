@@ -1,0 +1,5 @@
+2024-01-01 * Opening balances
+    Assets:Bank:Checking   1000.00 USD
+    Equity:OpeningBalance -1000.00 USD
+
+include included.journal

@@ -1,0 +1,41 @@
+; Sample journal for ferro_ledger — hledger-compatible syntax.
+; Try it with: hledger -f examples/sample.journal print
+; and with:    cargo run -- balance examples/sample.journal
+
+2024-01-01 * Opening balances
+    Assets:Bank:Checking          5000.00 USD
+    Equity:OpeningBalance        -5000.00 USD
+
+2024-01-05 * Invoice INV-2044 recorded
+    ; The customer hasn't paid yet — route it through a clearing account
+    ; instead of hitting Assets:Bank:Checking directly, so we can match it
+    ; against the bank settlement when it actually arrives.
+    Assets:Clearing:Payments      750.00 USD  ; match:INV-2044
+    Income:Sales                 -750.00 USD
+
+2024-01-09 * Bank settlement for INV-2044
+    Assets:Bank:Checking           750.00 USD
+    Assets:Clearing:Payments      -750.00 USD  ; match:INV-2044
+
+2024-01-12 * Invoice INV-2051 recorded
+    Assets:Clearing:Payments      320.00 USD  ; match:INV-2051
+    Income:Sales                 -320.00 USD
+
+2024-01-15 Grocery run for the office
+    Expenses:Groceries             45.20 USD
+    Assets:Bank:Checking
+
+2024-01-20 * Payroll clearing
+    ; A single clearing group can have more than two legs, as long as they
+    ; all share the same match: tag — the amount-based fallback only pairs
+    ; postings of identical size, so a 3-legged group like this needs tags.
+    Expenses:Payroll:Gross        2000.00 USD
+    Assets:Clearing:Payroll      -2000.00 USD  ; match:PAYROLL-2024-01-20
+
+2024-01-20 * Payroll disbursement
+    Assets:Clearing:Payroll       1500.00 USD  ; match:PAYROLL-2024-01-20
+    Assets:Bank:Checking         -1500.00 USD
+
+2024-01-20 * Payroll tax withholding
+    Assets:Clearing:Payroll        500.00 USD  ; match:PAYROLL-2024-01-20
+    Liabilities:PayrollTaxes      -500.00 USD

@@ -1,0 +1,5 @@
+2024-01-01 * A
+    Assets:A   1.00 USD
+    Equity:A  -1.00 USD
+
+include circular_b.journal
