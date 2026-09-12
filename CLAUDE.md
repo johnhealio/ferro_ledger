@@ -30,6 +30,7 @@ Read [docs/PLANNING.md](docs/PLANNING.md) for project phasing/status and
 | `docs/JOURNAL_FORMAT.md` | Supported journal syntax (hledger-compatible subset) |
 | `docs/CLEARING_ACCOUNTS.md` | Clearing/suspense account design: matching & clearing semantics |
 | `docs/BALANCE_SHEET.md` | Balance sheet report: account-type classification, net-income folding |
+| `docs/INCOME_STATEMENT.md` | Income statement report: Revenue/Expenses, net income, no date filtering yet |
 
 ## Conventions for this codebase
 

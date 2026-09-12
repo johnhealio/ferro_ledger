@@ -19,6 +19,8 @@ src/
     trial_balance.rs  TrialBalance report: builds rows from a Ledger, renders as text table
     balance_sheet.rs  BalanceSheet report: Assets/Liabilities/Equity via account_types.rs,
                        folds unclosed net income into Equity (docs/BALANCE_SHEET.md)
+    income_statement.rs  IncomeStatement report: Revenue/Expenses via account_types.rs, ending
+                       in a net income/loss line (docs/INCOME_STATEMENT.md)
     clearing.rs       Clearing-group analysis: groups postings in named accounts, nets them,
                        renders cleared/outstanding report
 examples/
@@ -27,6 +29,7 @@ tests/
   parser_tests.rs
   trial_balance_tests.rs
   balance_sheet_tests.rs
+  income_statement_tests.rs
   clearing_tests.rs
 ```
 
@@ -43,7 +46,7 @@ journal file(s) on disk
    journal::load()                     ledger::Ledger::from_transactions()
    (resolves `include`)                        │
                                                 ▼
-                          reports::trial_balance / reports::balance_sheet / reports::clearing
+          reports::trial_balance / reports::balance_sheet / reports::income_statement / reports::clearing
                                                 │
                                                 ▼
                                           CLI prints table

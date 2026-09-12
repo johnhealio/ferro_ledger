@@ -36,6 +36,14 @@ pub enum Command {
         file: PathBuf,
     },
 
+    /// Print an income statement (profit & loss): Revenue and Expenses across the whole
+    /// journal, ending in a net income/loss line. See docs/INCOME_STATEMENT.md.
+    #[command(alias = "is")]
+    IncomeStatement {
+        /// Path to the journal file.
+        file: PathBuf,
+    },
+
     /// Parse and balance-check the journal only; prints nothing and exits 0 on success, or
     /// prints the parse error and exits non-zero.
     Check {

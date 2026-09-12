@@ -4,4 +4,5 @@
 
 pub mod balance_sheet;
 pub mod clearing;
+pub mod income_statement;
 pub mod trial_balance;

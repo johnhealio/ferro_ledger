@@ -7,7 +7,7 @@ use clap::Parser;
 use ferro_ledger::cli::{Cli, Command};
 use ferro_ledger::ledger::Ledger;
 use ferro_ledger::model::Account;
-use ferro_ledger::reports::{balance_sheet, clearing, trial_balance};
+use ferro_ledger::reports::{balance_sheet, clearing, income_statement, trial_balance};
 use ferro_ledger::journal::load_journal;
 
 fn main() {
@@ -16,6 +16,7 @@ fn main() {
     let result = match cli.command {
         Command::Balance { file } => run_balance(&file),
         Command::BalanceSheet { file } => run_balance_sheet(&file),
+        Command::IncomeStatement { file } => run_income_statement(&file),
         Command::Check { file } => run_check(&file),
         Command::Clear { file, accounts } => run_clear(&file, &accounts),
     };
@@ -49,6 +50,17 @@ fn run_balance_sheet(file: &std::path::Path) -> Result<(), String> {
     if !report.is_balanced() {
         return Err("balance sheet does not balance".to_string());
     }
+    Ok(())
+}
+
+/// Runs the `income-statement`/`is` subcommand: loads `file` and prints its income statement.
+/// There's no accounting-equation check here (unlike `balance`/`balance-sheet`) — an income
+/// statement doesn't have one on its own, so this only fails if the journal itself fails to load.
+fn run_income_statement(file: &std::path::Path) -> Result<(), String> {
+    let transactions = load_journal(file).map_err(|e| e.to_string())?;
+    let ledger = Ledger::from_transactions(transactions);
+    let report = income_statement::build(&ledger);
+    print!("{}", report.render());
     Ok(())
 }
 

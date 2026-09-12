@@ -14,8 +14,9 @@
 //! - [`ledger`] — [`ledger::Ledger`], an in-memory index over parsed transactions with
 //!   account-balance queries.
 //! - [`reports`] — [`reports::trial_balance`] (the primary report), [`reports::balance_sheet`]
-//!   (see `docs/BALANCE_SHEET.md`), and [`reports::clearing`] (clearing/suspense-account
-//!   matching — see `docs/CLEARING_ACCOUNTS.md`).
+//!   (see `docs/BALANCE_SHEET.md`), [`reports::income_statement`] (see
+//!   `docs/INCOME_STATEMENT.md`), and [`reports::clearing`] (clearing/suspense-account matching
+//!   — see `docs/CLEARING_ACCOUNTS.md`).
 //! - [`account_types`] — the name-based heuristic the balance sheet uses to classify accounts
 //!   as Asset/Liability/Equity/Revenue/Expense.
 //! - [`cli`] — the `clap`-derived command-line argument definitions used by the `ferro_ledger`

@@ -79,26 +79,44 @@ re-computed — this mirrors hledger/ledger-cli exactly.
 - [x] Integration tests: `tests/balance_sheet_tests.rs` (balances with no P&L activity, net
       income folding, sign display, unclassified-account exclusion).
 
+### Phase 6 — Income statement report
+- [x] Design doc (`docs/INCOME_STATEMENT.md`) settled: reuses `src/account_types.rs`'s
+      Revenue/Expense classification; Revenue rows sign-flipped to display positive; a net
+      income/loss bottom line (Revenue − Expenses); Asset/Liability/Equity accounts are out of
+      scope (not flagged as an anomaly), while a genuinely unrecognized top-level segment is
+      still listed, same as the balance sheet does.
+- [x] `income_statement::build`/`render`, one statement per commodity.
+- [x] CLI: `ferro_ledger income-statement <journal>` (alias `is`).
+- [x] Integration tests: `tests/income_statement_tests.rs`, including a direct cross-check that
+      its net income always equals the balance sheet's folded-in "Net Income (unclosed)" row —
+      both are computed from the same Revenue/Expense balances.
+- [x] Known v1 limitation (not addressed this phase): no date-range filtering anywhere in the
+      CLI, so this report — like every other report — covers the whole journal, not a fiscal
+      period. See "No date-range filtering" in `docs/INCOME_STATEMENT.md`.
+
 ## Quick start
 
 ```sh
-cargo run -- balance examples/sample.journal        # trial balance (alias: trial-balance)
-cargo run -- balance-sheet examples/sample.journal   # balance sheet (alias: bs)
+cargo run -- balance examples/sample.journal          # trial balance (alias: trial-balance)
+cargo run -- balance-sheet examples/sample.journal     # balance sheet (alias: bs)
+cargo run -- income-statement examples/sample.journal  # income statement (alias: is)
 cargo run -- clear examples/sample.journal --account Assets:Clearing:Payments --account Assets:Clearing:Payroll
-cargo run -- check examples/sample.journal           # parse + balance-validate only
-cargo test                                           # unit + integration tests
+cargo run -- check examples/sample.journal             # parse + balance-validate only
+cargo test                                             # unit + integration tests
 ```
 
 ## Explicitly out of scope for v1
 
 - Multi-currency conversion / exchange rates (`P` price directives) — parsed-and-ignored at most.
 - Budgets, forecasting, periodic transactions.
-- An income statement / P&L report, and a real `close` (period-end closing entry) command —
-  the balance sheet's net-income folding (`docs/BALANCE_SHEET.md`) is a computed stand-in for
-  the latter, not a replacement for either.
-- `account`-directive account types (`account Assets:Bank ; type:A`) — the balance sheet's
-  classification is name-based only (`src/account_types.rs`); explicit type declarations would
-  be a natural follow-up if name-based classification proves too fragile in practice.
+- Date-range filtering (a fiscal period, `--since`/`--until`) — every report, including the new
+  income statement, covers the whole journal every run. See `docs/INCOME_STATEMENT.md`.
+- A real `close` (period-end closing entry) command — the balance sheet's net-income folding
+  (`docs/BALANCE_SHEET.md`) is a computed stand-in, not a replacement.
+- `account`-directive account types (`account Assets:Bank ; type:A`) — the balance sheet's and
+  income statement's classification is name-based only (`src/account_types.rs`); explicit type
+  declarations would be a natural follow-up if name-based classification proves too fragile in
+  practice.
 - Auto-rewriting the journal file to mark transactions `*` cleared — the `clear` report is
   read-only in v1; see `docs/CLEARING_ACCOUNTS.md` for why and what v2 would need.
 - A TUI — this is a plain argument-driven CLI (`clap`) that prints reports and exits.
@@ -121,9 +139,8 @@ cargo test                                           # unit + integration tests
 
 ## Status
 
-Phases 0–5 are complete: parser, ledger, trial balance report, clearing-account analysis, and
-balance sheet report are all implemented and tested (`cargo test`: 25 passed; `cargo clippy
---all-targets`: clean; `cargo doc --no-deps`: clean). Next natural increments: an income
-statement report (would reuse `account_types.rs`'s Revenue/Expense classification), multi-currency
-conversion, and a journal-rewriting `clear --mark` mode (see "Future work" in
-`docs/CLEARING_ACCOUNTS.md`).
+Phases 0–6 are complete: parser, ledger, trial balance, balance sheet, income statement, and
+clearing-account analysis are all implemented and tested (`cargo test`: 29 passed; `cargo clippy
+--all-targets`: clean; `cargo doc --no-deps`: clean). Next natural increments: date-range
+filtering (shared across all report commands), multi-currency conversion, and a
+journal-rewriting `clear --mark` mode (see "Future work" in `docs/CLEARING_ACCOUNTS.md`).
