@@ -9,17 +9,17 @@ A text-based, command-line general ledger, written in Rust.
   ferro_ledger is also valid input to `hledger`, as far as that subset goes.
 - **Double-entry, always.** Every transaction's postings must sum to zero (per commodity) —
   enforced when the journal is loaded, not deferred to report time.
-- **Trial balance is the primary report**, plus a clearing/suspense-account analyzer for
-  tracking groups of postings (e.g. a payment recorded now, settled later) until they net to
-  zero.
+- **Trial balance is the primary report**, plus a balance sheet and a clearing/suspense-account
+  analyzer for tracking groups of postings (e.g. a payment recorded now, settled later) until
+  they net to zero.
 
 ## Why
 
 Most personal/small-business ledger tools are either a full accounting *application* (a
 database, a UI, an install) or a big, general-purpose tool like hledger itself. ferro_ledger
 is the minimal middle ground: a single small CLI binary, your journal is a text file you can
-read and edit by hand, and the two reports it produces (trial balance, clearing-account status)
-are the ones you reach for constantly when keeping books this way.
+read and edit by hand, and the reports it produces (trial balance, balance sheet,
+clearing-account status) are the ones you reach for constantly when keeping books this way.
 
 ## Installing / building
 
@@ -56,6 +56,33 @@ TOTAL                            6570.00         6570.00
 ```
 
 ```sh
+cargo run -- balance-sheet examples/sample.journal
+```
+
+```
+Commodity: USD
+ASSETS
+  Assets:Bank:Checking             4204.80
+  Assets:Clearing:Payments          320.00
+  Total Assets                     4524.80
+
+LIABILITIES
+  Liabilities:PayrollTaxes          500.00
+  Total Liabilities                 500.00
+
+EQUITY
+  Equity:OpeningBalance         5000.00
+  Net Income (unclosed)         -975.20
+  Total Equity                  4024.80
+
+Assets (4524.80) = Liabilities + Equity (4524.80)
+```
+
+`Net Income (unclosed)` is a computed line, not a real account — Income and Expenses haven't
+been closed into Equity, so ferro_ledger nets them itself so the sheet still balances. See
+[`docs/BALANCE_SHEET.md`](docs/BALANCE_SHEET.md).
+
+```sh
 cargo run -- clear examples/sample.journal --account Assets:Clearing:Payments
 ```
 
@@ -74,6 +101,7 @@ Clearing account: Assets:Clearing:Payments
 | Command | What it does |
 |---|---|
 | `ferro_ledger balance <FILE>` (alias `trial-balance`) | Prints a trial balance: one row per account, debit/credit columns, one section per commodity. Exits non-zero if a section doesn't foot. |
+| `ferro_ledger balance-sheet <FILE>` (alias `bs`) | Prints a balance sheet: Assets, Liabilities, and Equity, classified from each account's top-level segment. Exits non-zero if it doesn't balance. |
 | `ferro_ledger clear <FILE> --account <ACCOUNT>...` | Groups a clearing/suspense account's postings by matching key and reports which groups have cleared (net to zero) vs. are still outstanding. Repeat `--account` for multiple accounts. |
 | `ferro_ledger check <FILE>` | Parses and balance-validates the journal only. Prints nothing and exits 0 on success — useful in CI/pre-commit. |
 
@@ -126,6 +154,8 @@ mismatched), so tag anything you care about reconciling correctly. Full design:
 - [`docs/PLANNING.md`](docs/PLANNING.md) — phased build plan and status.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module layout and data flow.
 - [`docs/JOURNAL_FORMAT.md`](docs/JOURNAL_FORMAT.md) — supported journal syntax.
+- [`docs/BALANCE_SHEET.md`](docs/BALANCE_SHEET.md) — balance sheet: account classification, net
+  income folding.
 - [`docs/CLEARING_ACCOUNTS.md`](docs/CLEARING_ACCOUNTS.md) — clearing/suspense account design.
 
 API docs (rustdoc) can be built locally:
@@ -144,8 +174,8 @@ cargo fmt
 
 ## Status / roadmap
 
-v1 covers: journal parsing, double-entry validation, trial balance, and clearing-account
-analysis. Not yet implemented: balance sheet / income statement reports, multi-currency
+v1 covers: journal parsing, double-entry validation, trial balance, balance sheet, and
+clearing-account analysis. Not yet implemented: an income statement report, multi-currency
 conversion, and a journal-rewriting `clear --mark` mode. See
 [`docs/PLANNING.md`](docs/PLANNING.md) for details.
 

@@ -28,6 +28,14 @@ pub enum Command {
         file: PathBuf,
     },
 
+    /// Print a balance sheet: Assets, Liabilities, and Equity, classified from each account's
+    /// top-level segment. See docs/BALANCE_SHEET.md.
+    #[command(alias = "bs")]
+    BalanceSheet {
+        /// Path to the journal file.
+        file: PathBuf,
+    },
+
     /// Parse and balance-check the journal only; prints nothing and exits 0 on success, or
     /// prints the parse error and exits non-zero.
     Check {

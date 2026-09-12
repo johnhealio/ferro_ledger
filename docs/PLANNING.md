@@ -60,25 +60,45 @@ re-computed — this mirrors hledger/ledger-cli exactly.
       examples/sample.journal print` diff later if/when `hledger` is available.
 - [x] Integration tests: `tests/parser_tests.rs` (file I/O, `include` resolution, circular
       include detection), `tests/trial_balance_tests.rs`, `tests/clearing_tests.rs` (tag
-      matching, fallback matching, subtree rollup into clearing sub-accounts) — 19 tests total,
-      all passing; `cargo clippy --all-targets` clean.
-- [x] Usage instructions kept in this docs set (see the Quick start below), not duplicated in a
-      separate README.
+      matching, fallback matching, subtree rollup into clearing sub-accounts).
+- [x] Usage instructions kept in this docs set (see the Quick start below) and in `README.md`
+      for GitHub visitors.
+- [x] rustdoc comments on every public item (`cargo doc --no-deps` clean, verified with
+      `-W missing_docs`).
+
+### Phase 5 — Balance sheet report
+- [x] Design doc (`docs/BALANCE_SHEET.md`) settled: accounts classified by top-level segment
+      name (`src/account_types.rs`, case-insensitive, singular/plural); Liability and Equity
+      rows sign-flipped so a normal balance displays positive; unclosed Revenue/Expense activity
+      folded into Equity as a synthetic "Net Income (unclosed)" row so the sheet balances
+      without requiring period-end closing entries; accounts with an unrecognized top-level
+      segment are excluded from every section and listed separately rather than guessed at.
+- [x] `balance_sheet::build`/`render`, one sheet per commodity, with an
+      Assets == Liabilities + Equity check per sheet.
+- [x] CLI: `ferro_ledger balance-sheet <journal>` (alias `bs`).
+- [x] Integration tests: `tests/balance_sheet_tests.rs` (balances with no P&L activity, net
+      income folding, sign display, unclassified-account exclusion).
 
 ## Quick start
 
 ```sh
-cargo run -- balance examples/sample.journal   # trial balance (alias: trial-balance)
+cargo run -- balance examples/sample.journal        # trial balance (alias: trial-balance)
+cargo run -- balance-sheet examples/sample.journal   # balance sheet (alias: bs)
 cargo run -- clear examples/sample.journal --account Assets:Clearing:Payments --account Assets:Clearing:Payroll
-cargo run -- check examples/sample.journal     # parse + balance-validate only
-cargo test                                     # unit + integration tests
+cargo run -- check examples/sample.journal           # parse + balance-validate only
+cargo test                                           # unit + integration tests
 ```
 
 ## Explicitly out of scope for v1
 
 - Multi-currency conversion / exchange rates (`P` price directives) — parsed-and-ignored at most.
 - Budgets, forecasting, periodic transactions.
-- Balance sheet / income statement reports beyond trial balance (natural next step, not v1).
+- An income statement / P&L report, and a real `close` (period-end closing entry) command —
+  the balance sheet's net-income folding (`docs/BALANCE_SHEET.md`) is a computed stand-in for
+  the latter, not a replacement for either.
+- `account`-directive account types (`account Assets:Bank ; type:A`) — the balance sheet's
+  classification is name-based only (`src/account_types.rs`); explicit type declarations would
+  be a natural follow-up if name-based classification proves too fragile in practice.
 - Auto-rewriting the journal file to mark transactions `*` cleared — the `clear` report is
   read-only in v1; see `docs/CLEARING_ACCOUNTS.md` for why and what v2 would need.
 - A TUI — this is a plain argument-driven CLI (`clap`) that prints reports and exits.
@@ -93,11 +113,17 @@ cargo test                                     # unit + integration tests
 - **Decimal library**: `rust_decimal` over `f64`, non-negotiable for money.
 - **Parser approach**: hand-rolled, not `nom`/`pest` — the format is small and line-structured;
   a hand-rolled parser gives us precise, hledger-shaped error messages more easily.
+- **Balance sheet folds net income into Equity** rather than shipping a report that's routinely
+  wrong (or requiring the user to write closing entries first). See `docs/BALANCE_SHEET.md`.
+  Accounts the classifier can't place are excluded and listed explicitly rather than guessed at,
+  for the same "don't silently do the wrong thing" reason `docs/CLEARING_ACCOUNTS.md` gives for
+  flagging mixed-commodity clearing groups as an anomaly instead of quietly netting them.
 
 ## Status
 
-Phases 0–4 are complete: parser, ledger, trial balance report, and clearing-account analysis are
-all implemented and tested (`cargo test`: 19 passed; `cargo clippy --all-targets`: clean). Next
-natural increments after v1: balance sheet / income statement reports, multi-currency
+Phases 0–5 are complete: parser, ledger, trial balance report, clearing-account analysis, and
+balance sheet report are all implemented and tested (`cargo test`: 25 passed; `cargo clippy
+--all-targets`: clean; `cargo doc --no-deps`: clean). Next natural increments: an income
+statement report (would reuse `account_types.rs`'s Revenue/Expense classification), multi-currency
 conversion, and a journal-rewriting `clear --mark` mode (see "Future work" in
 `docs/CLEARING_ACCOUNTS.md`).

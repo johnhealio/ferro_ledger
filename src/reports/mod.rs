@@ -2,5 +2,6 @@
 //! separate from rendering (each submodule's `render`/`render_section`) so report logic stays
 //! unit-testable without capturing stdout.
 
+pub mod balance_sheet;
 pub mod clearing;
 pub mod trial_balance;
